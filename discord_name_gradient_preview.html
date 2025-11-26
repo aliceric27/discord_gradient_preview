@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>文字漸層流動測試 (HEX版)</title>
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+        }
+
+        :root {
+            --color-start: #e5de78;
+            --color-end: #ff6b6b;
+            --anim-speed: 2.5s;
+        }
+
+        body {
+            background-color: #1e1e1e;
+            font-family: 'Segoe UI', Consolas, monospace; /* 使用等寬字體更適合看代碼 */
+            color: white;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 32px 24px 48px;
+        }
+
+        .controls {
+            background: #2b2b2b;
+            padding: 25px;
+            border-radius: 12px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+            margin-bottom: 50px;
+            display: flex;
+            gap: 30px;
+            align-items: flex-end;
+            flex-wrap: wrap;
+            border: 1px solid #3d3d3d;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        label {
+            font-size: 13px;
+            color: #aaa;
+            font-weight: 600;
+        }
+
+        /* 顏色輸入區塊的容器 */
+        .color-input-wrapper {
+            display: flex;
+            align-items: center;
+            background: #333;
+            border: 1px solid #555;
+            border-radius: 6px;
+            padding: 4px;
+            gap: 8px;
+        }
+
+        /* 顏色方塊 */
+        input[type="color"] {
+            border: none;
+            width: 30px;
+            height: 30px;
+            cursor: pointer;
+            background: none;
+            padding: 0;
+        }
+
+        /* HEX 文字輸入框 */
+        input.hex-text {
+            background: transparent;
+            border: none;
+            color: #fff;
+            font-family: 'Consolas', monospace;
+            font-size: 14px;
+            width: 70px;
+            text-transform: uppercase; /* 強制顯示大寫，看起來比較專業 */
+            outline: none;
+        }
+
+        input[type="text"].main-input {
+            padding: 10px;
+            border-radius: 6px;
+            border: 1px solid #555;
+            background: #333;
+            color: white;
+            width: 200px;
+            font-size: 16px;
+        }
+
+        /* === 核心效果 CSS === */
+        .gradient-text {
+            font-size: 5rem;
+            font-weight: 900;
+            font-family: sans-serif;
+            
+            background-image: linear-gradient(
+                90deg, 
+                var(--color-start) 0%, 
+                var(--color-end) 50%, 
+                var(--color-start) 100%
+            );
+            background-size: 200% auto;
+            background-clip: text;
+            -webkit-background-clip: text;
+            color: transparent;
+            
+            /* 動畫設定 */
+            animation: gradientUsernameAnimation var(--anim-speed) linear infinite;
+        }
+
+        @keyframes gradientUsernameAnimation {
+            0% { background-position: 0% center; }
+            100% { background-position: -200% center; }
+        }
+
+        /* 右下角 Discord 浮動按鈕 */
+        .discord-fab {
+            position: fixed;
+            right: 20px;
+            bottom: 20px;
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            overflow: hidden; /* 將圖片裁切為圓形 */
+            background: #5865F2;
+            text-decoration: none;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+            transition: transform 0.15s ease, box-shadow 0.15s ease;
+        }
+
+        .discord-fab:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(0,0,0,0.5);
+        }
+
+        .discord-fab img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        }
+
+        /* 手機小螢幕（含 iPhone SE）RWD 調整 */
+        @media (max-width: 480px) {
+            body {
+                justify-content: flex-start;
+                padding: 16px 12px 56px;
+            }
+
+            .controls {
+                flex-direction: column;
+                align-items: stretch;
+                width: 100%;
+                gap: 16px;
+                margin-bottom: 24px;
+                padding: 16px 14px;
+            }
+
+            input[type="text"].main-input {
+                width: 100%;
+            }
+
+            .gradient-text {
+                font-size: 2.6rem;
+                text-align: center;
+                word-break: break-word;
+            }
+
+            .discord-fab {
+                right: 12px;
+                bottom: 12px;
+                width: 40px;
+                height: 40px;
+            }
+        }
+
+        /* 簡易複製提示：由上往下滑入，綠色背景 */
+        .copy-toast {
+            position: fixed;
+            top: 12px;
+            left: 50%;
+            transform: translateX(-50%) translateY(-16px);
+            background: #16a34a; /* 綠色背景 */
+            color: #fff;
+            padding: 8px 14px;
+            border-radius: 999px;
+            font-size: 13px;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.18s ease-out, transform 0.18s ease-out;
+            transform-origin: top center;
+            z-index: 20;
+        }
+
+        .copy-toast.show {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+        }
+    </style>
+</head>
+<body>
+
+    <div class="controls">
+        <!-- 起始顏色 -->
+        <div class="control-group">
+            <label id="labelStart">起始 HEX (Start)</label>
+            <div class="color-input-wrapper">
+                <input type="color" id="pickerStart" value="#e5de78">
+                <input type="text" class="hex-text" id="textStart" value="#E5DE78" maxlength="7">
+            </div>
+        </div>
+
+        <!-- 結束顏色 -->
+        <div class="control-group">
+            <label id="labelEnd">結束 HEX (End)</label>
+            <div class="color-input-wrapper">
+                <input type="color" id="pickerEnd" value="#ff6b6b">
+                <input type="text" class="hex-text" id="textEnd" value="#FF6B6B" maxlength="7">
+            </div>
+        </div>
+
+        <!-- 文字輸入 -->
+        <div class="control-group">
+            <label id="labelText">測試文字</label>
+            <input type="text" class="main-input" id="TextInput" value="哈吉吉吉吉">
+        </div>
+    </div>
+
+    <div class="gradient-text" id="targetText">哈吉吉吉吉</div>
+
+    <!-- 複製提示 -->
+    <div id="copyToast" class="copy-toast">已複製到剪貼簿</div>
+
+    <!-- 右下角 Discord 連結 -->
+    <a class="discord-fab" href="http://discord.gg/30cm" target="_blank" rel="noopener noreferrer" aria-label="Discord server">
+        <img src="discord.jpg" alt="Discord">
+    </a>
+
+    <script>
+        // --- 簡易語系偵測與文字切換（繁中 / 英文） ---
+        const uiText = {
+            'zh-TW': {
+                title: '文字漸層流動測試 (HEX版)',
+                labelStart: '起始 HEX (Start)',
+                labelEnd: '結束 HEX (End)',
+                labelText: '測試文字'
+            },
+            'en': {
+                title: 'Gradient Text Animation (HEX)',
+                labelStart: 'Start HEX',
+                labelEnd: 'End HEX',
+                labelText: 'Test Text'
+            }
+        };
+
+        function detectUILang() {
+            const navLangs = navigator.languages && navigator.languages.length
+                ? navigator.languages
+                : [navigator.language || navigator.userLanguage || 'zh-TW'];
+
+            const primary = (navLangs[0] || 'zh-TW').toLowerCase();
+
+            if (primary.startsWith('en')) return 'en';
+            return 'zh-TW';
+        }
+
+        function applyLanguage(langCode) {
+            const lang = uiText[langCode] ? langCode : 'zh-TW';
+            const dict = uiText[lang];
+
+            // 切換 <html> 的 lang，利於無障礙與 SEO
+            document.documentElement.lang = lang === 'en' ? 'en' : 'zh-TW';
+
+            // 頁面標題
+            document.title = dict.title;
+
+            // 介面文字
+            const labelStart = document.getElementById('labelStart');
+            const labelEnd = document.getElementById('labelEnd');
+            const labelText = document.getElementById('labelText');
+
+            if (labelStart) labelStart.textContent = dict.labelStart;
+            if (labelEnd) labelEnd.textContent = dict.labelEnd;
+            if (labelText) labelText.textContent = dict.labelText;
+        }
+
+        const currentUILang = detectUILang();
+        applyLanguage(currentUILang);
+
+        const root = document.documentElement;
+        
+        // 取得元素
+        const pickerStart = document.getElementById('pickerStart');
+        const textStart = document.getElementById('textStart');
+        const pickerEnd = document.getElementById('pickerEnd');
+        const textEnd = document.getElementById('textEnd');
+        const textInput = document.getElementById('TextInput');
+        const targetText = document.getElementById('targetText');
+        const copyToast = document.getElementById('copyToast');
+
+        // 通用函式：更新 CSS 變數
+        function updateCSS() {
+            root.style.setProperty('--color-start', textStart.value);
+            root.style.setProperty('--color-end', textEnd.value);
+        }
+
+        // 通用函式：處理顏色同步
+        function setupColorSync(picker, textInput) {
+            // 1. 當拉動選色器時 -> 更新文字框 + 更新 CSS
+            picker.addEventListener('input', () => {
+                textInput.value = picker.value.toUpperCase();
+                updateCSS();
+            });
+
+            // 2. 當輸入文字時 -> 驗證 HEX -> 更新選色器 + 更新 CSS
+            textInput.addEventListener('input', (e) => {
+                let val = e.target.value;
+                
+                // 自動補上 # 號
+                if (!val.startsWith('#')) {
+                    val = '#' + val;
+                    textInput.value = val;
+                }
+
+                // 驗證是否為有效的 HEX 格式 (6碼)
+                // 瀏覽器的 color input 很嚴格，只接受完整的 6 碼 hex
+                const hexRegex = /^#([0-9A-F]{3}){1,2}$/i;
+                
+                if (hexRegex.test(val)) {
+                    // 如果是 3 碼簡寫 (例如 #FFF)，要轉成 6 碼瀏覽器才吃 (#FFFFFF)
+                    if (val.length === 4) {
+                        const r = val[1], g = val[2], b = val[3];
+                        picker.value = `#${r}${r}${g}${g}${b}${b}`;
+                    } else {
+                        picker.value = val;
+                    }
+                    updateCSS();
+                }
+            });
+        }
+
+        // 初始化綁定
+        setupColorSync(pickerStart, textStart);
+        setupColorSync(pickerEnd, textEnd);
+
+        // 文字內容更新
+        textInput.addEventListener('input', (e) => {
+            targetText.textContent = e.target.value;
+        });
+
+        // 點擊 HEX 輸入框即自動複製文字到剪貼簿，並顯示提示
+        function showCopyToast(message) {
+            if (!copyToast) return;
+            copyToast.textContent = message;
+            copyToast.classList.add('show');
+            clearTimeout(showCopyToast._timer);
+            showCopyToast._timer = setTimeout(() => {
+                copyToast.classList.remove('show');
+            }, 1200);
+        }
+
+        function copyTextToClipboard(text, sourceInput) {
+            if (!text) return;
+
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(text).then(
+                    () => showCopyToast('已複製到剪貼簿'),
+                    () => fallbackCopy()
+                );
+            } else {
+                fallbackCopy();
+            }
+
+            function fallbackCopy() {
+                try {
+                    // 選取來源 input 內容並嘗試 execCommand
+                    if (sourceInput && sourceInput.select) {
+                        sourceInput.select();
+                    }
+                    document.execCommand('copy');
+                    showCopyToast('已複製到剪貼簿');
+                } catch (e) {
+                    showCopyToast('無法自動複製，請手動 Ctrl+C');
+                }
+            }
+        }
+
+        // 點擊 HEX 文字輸入框會複製對應的 HEX 值
+        [textStart, textEnd].forEach((el) => {
+            if (!el) return;
+            el.addEventListener('click', () => {
+                copyTextToClipboard(el.value, el);
+            });
+        });
+
+    </script>
+</body>
+</html>
